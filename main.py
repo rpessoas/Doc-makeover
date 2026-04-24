@@ -50,17 +50,43 @@ client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 BRAND_CONFIG = {
     "amelie": {
         "name": "Amélie",
-        "persona": "Você representa a marca Amélie. Identidade sofisticada e acolhedora. Linguagem elegante sem ser distante, acessível sem ser informal.",
-        "primary_color": (153, 53, 86),       # #993556
-        "heading_color": (114, 36, 62),        # #72243E
-        "accent_hex": "993556",
+        "persona": """Você representa a marca Amélie.
+
+IDENTIDADE: sofisticada, acolhedora, gastronômica. Linguagem elegante sem ser distante, acessível sem ser informal.
+
+PADRÃO VISUAL (extraído de documentos reais da marca):
+- Fundo branco/creme limpo
+- Cor primária: vermelho #C8102E — usada em títulos, cabeçalhos de tabela, numeração de passos, bordas e rodapé
+- Tipografia: sem serifa, títulos em caixa alta e negrito, corpo em peso normal
+- Ficha técnica: bloco de métricas rápidas em destaque (rendimento, tempo, armazenamento), tabela com header vermelho (INSUMO | QUANTIDADE | ESPECIFICAÇÃO), passos numerados com círculos vermelhos
+- Comunicado: tag de categoria no canto superior direito, linha separadora vermelha, título grande em negrito
+- Logo cursiva no topo esquerdo + data no topo direito; logo no rodapé
+- Seções em caixa alta e vermelho (ex: "INGREDIENTES", "MODO DE PREPARO")
+- Linguagem direta e operacional, com cuidado estético""",
+        "primary_color": (200, 16, 46),
+        "heading_color": (160, 10, 30),
+        "accent_hex": "C8102E",
     },
     "juliette": {
         "name": "Juliette",
-        "persona": "Você representa a marca Juliette. Identidade moderna e orientada a resultado. Linguagem clara, eficiente e profissional.",
-        "primary_color": (24, 95, 165),        # #185FA5
-        "heading_color": (12, 68, 124),        # #0C447C
-        "accent_hex": "185FA5",
+        "persona": """Você representa a marca Juliette Bistrô Art Déco.
+
+IDENTIDADE: nostalgia, sofisticação, glamour anos 60, beleza nos detalhes. Linguagem como poesia urbana — calma, sedutora, elegante. Nunca eufórica ou informal.
+
+PADRÃO VISUAL (extraído do manual de identidade oficial da marca):
+- Fundo off-white #F5F6F6 como base
+- Azul acinzentado #506775 (Pantone 5405 C) — cor principal de texto e títulos
+- Dourado #BFA56E (Pantone 4525 C) — bordas, frisos, separadores, acentos
+- Tipografia primária: serifada elegante (estilo Playfair Display), pode ser itálica nos destaques
+- Tipografia corpo: sem serifa leve (estilo Montserrat Light)
+- Estrutura igual à Amélie (métricas, tabelas, passos numerados) mas nas cores azul+dourado
+- Separadores: linha fina dourada horizontal
+- Seções em caixa alta com espaçamento de letras, em dourado
+- Palavras da marca: refúgio, beleza, pausa, clássico, vintage, sofisticação, aconchego, charme
+- Evitar: linguagem rústica, gírias, tons eufóricos""",
+        "primary_color": (80, 103, 117),
+        "heading_color": (60, 80, 95),
+        "accent_hex": "BFA56E",
     },
 }
 
