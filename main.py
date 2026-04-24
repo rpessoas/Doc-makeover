@@ -355,7 +355,7 @@ async function runPadronizacao() {
 
   if (!selectedFile) { document.getElementById('status').textContent = 'Selecione um arquivo antes de continuar.'; return; }
 
-  const apiUrl = '';
+  const apiUrl = window.location.origin;
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
   document.getElementById('status').textContent = '';
@@ -397,8 +397,7 @@ async function runPadronizacao() {
       hideProgress();
       document.getElementById('status').textContent = 'Erro: ' + e.message;
     }
-  } else if (false) { // modo demo desabilitado na versão hospedada
-    // ── Modo demo ────
+  } else if (false) {
     setProgress(20, 'Lendo arquivo...');
     let textContent = '';
     const ext = selectedFile.name.split('.').pop().toLowerCase();
