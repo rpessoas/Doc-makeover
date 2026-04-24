@@ -15,8 +15,10 @@ Deploy Railway/Render:
 
 import os, io, json, re, tempfile
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 import anthropic
 import docx
@@ -35,6 +37,13 @@ from pptx.util import Inches as PptInches, Pt as PptPt
 import openpyxl
 
 app = FastAPI(title="Padronizador Amélie & Juliette")
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    html_path = Path(__file__).parent / "static" / "index.html"
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h1>Frontend não encontrado</h1>", status_code=404)
 
 app.add_middleware(
     CORSMiddleware,
