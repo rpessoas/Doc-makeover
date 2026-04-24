@@ -386,7 +386,7 @@ Responda SOMENTE com um JSON válido, sem markdown, sem explicações fora do JS
 }}"""
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5-20251001",
         max_tokens=4000,
         messages=[{"role": "user", "content": prompt}],
     )
