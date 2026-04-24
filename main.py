@@ -13,7 +13,7 @@ Deploy Railway/Render:
   - Adicione a variável de ambiente: ANTHROPIC_API_KEY=sk-...
 """
 
-import os, io, json, re, tempfile
+import os, io, json, base64, re, tempfile
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 import anthropic
 import docx
+from logos import LOGO_AMELIE, LOGO_JULIETTE
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -634,13 +635,27 @@ def extract_text_docx(file_bytes: bytes) -> str:
             lines.append(text)
     return "\n".join(lines)
 
+def is_slide_pdf(file_bytes: bytes) -> bool:
+    """Detecta se o PDF tem layout de slides (landscape + poucas palavras por página)"""
+    try:
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            if not pdf.pages:
+                return False
+            page = pdf.pages[0]
+            is_landscape = (page.width or 0) > (page.height or 0)
+            total_words = sum(len((p.extract_text() or "").split()) for p in pdf.pages)
+            avg_words = total_words / len(pdf.pages) if pdf.pages else 0
+            return is_landscape and avg_words < 100
+    except:
+        return False
+
 def extract_text_pdf(file_bytes: bytes) -> str:
     text_parts = []
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-        for page in pdf.pages:
+        for i, page in enumerate(pdf.pages, 1):
             t = page.extract_text()
-            if t:
-                text_parts.append(t)
+            if t and t.strip():
+                text_parts.append(f"## Slide {i}\n\n{t.strip()}")
     return "\n\n".join(text_parts)
 
 def extract_text_pptx(file_bytes: bytes) -> str:
@@ -706,23 +721,93 @@ def build_docx(markdown_text: str, brand: str) -> bytes:
                 run = p.add_run(part)
                 run.bold = (i % 2 == 1)
 
+    # Adiciona logo no cabeçalho
+    try:
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+        logo_b64 = LOGO_AMELIE if brand == "amelie" else LOGO_JULIETTE
+        logo_bytes_docx = base64.b64decode(logo_b64)
+        section = doc.sections[0]
+        header = section.header
+        hp = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+        hp.clear()
+        run = hp.add_run()
+        run.add_picture(io.BytesIO(logo_bytes_docx), width=docx.shared.Cm(4))
+        hp.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        # Linha separadora no cabeçalho
+        pPr = hp._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bottom = OxmlElement('w:bottom')
+        r_hex, g_hex, b_hex = cfg["heading_color"]
+        color_hex = f'{r_hex:02X}{g_hex:02X}{b_hex:02X}'
+        bottom.set(qn('w:val'), 'single')
+        bottom.set(qn('w:sz'), '6')
+        bottom.set(qn('w:color'), color_hex)
+        pBdr.append(bottom)
+        pPr.append(pBdr)
+    except Exception as logo_err:
+        pass  # se falhar, documento sai sem logo mas não quebra
+
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
     return buf.read()
 
-def build_pdf(markdown_text: str, brand: str) -> bytes:
+def build_pdf(markdown_text: str, brand: str, is_slides: bool = False) -> bytes:
     cfg = BRAND_CONFIG[brand]
     r, g, b = cfg["primary_color"]
     brand_color = colors.Color(r/255, g/255, b/255)
 
+    from reportlab.platypus import Image as RLImage
+    from reportlab.lib.pagesizes import A4, landscape
+
+    logo_b64 = LOGO_AMELIE if brand == "amelie" else LOGO_JULIETTE
+    logo_bytes = base64.b64decode(logo_b64)
+
+    if is_slides:
+        pagesize = landscape(A4)
+        lm = rm = 1.5*cm
+        tm = bm = 1.5*cm
+    else:
+        pagesize = A4
+        lm = rm = 2.5*cm
+        tm = 3.5*cm  # espaço para logo no topo
+        bm = 2*cm
+
     buf = io.BytesIO()
-    doc_pdf = SimpleDocTemplate(buf, pagesize=A4,
-                                 leftMargin=2.5*cm, rightMargin=2.5*cm,
-                                 topMargin=2.5*cm, bottomMargin=2.5*cm)
+
+    def add_logo_header(canvas, doc):
+        canvas.saveState()
+        from PIL import Image as PILImage
+        logo_img = PILImage.open(io.BytesIO(logo_bytes))
+        w, h = logo_img.size
+        logo_h = 1.2*cm
+        logo_w = logo_h * (w / h)
+        from reportlab.lib.utils import ImageReader
+        logo_reader = ImageReader(io.BytesIO(logo_bytes))
+        canvas.drawImage(logo_reader, lm, pagesize[1] - tm + 0.3*cm,
+                        width=logo_w, height=logo_h,
+                        preserveAspectRatio=True, mask='auto')
+        # linha separadora
+        canvas.setStrokeColor(colors.Color(r/255, g/255, b/255))
+        canvas.setLineWidth(0.5)
+        canvas.line(lm, pagesize[1] - tm + 0.1*cm,
+                   pagesize[0] - rm, pagesize[1] - tm + 0.1*cm)
+        canvas.restoreState()
+
+    doc_pdf = SimpleDocTemplate(buf, pagesize=pagesize,
+                                leftMargin=lm, rightMargin=rm,
+                                topMargin=tm, bottomMargin=bm)
     styles = getSampleStyleSheet()
     story = []
 
+    slide_title_style = ParagraphStyle("SlideTitle", parent=styles["Heading1"],
+                               textColor=brand_color, fontSize=28, spaceAfter=20,
+                               leading=34, alignment=1)
+    slide_body_style = ParagraphStyle("SlideBody", parent=styles["Normal"],
+                               fontSize=16, leading=24, spaceAfter=8)
+    slide_bullet_style = ParagraphStyle("SlideBullet", parent=styles["Normal"],
+                               fontSize=14, leading=22, leftIndent=25, spaceAfter=6)
     h1_style = ParagraphStyle("H1Brand", parent=styles["Heading1"],
                                textColor=brand_color, fontSize=16, spaceAfter=8)
     h2_style = ParagraphStyle("H2Brand", parent=styles["Heading2"],
@@ -733,27 +818,35 @@ def build_pdf(markdown_text: str, brand: str) -> bytes:
     bullet_style = ParagraphStyle("Bullet", parent=styles["Normal"],
                                    fontSize=11, leading=16, leftIndent=20, bulletIndent=10)
 
-    for line in markdown_text.split("\n"):
+    lines = markdown_text.split("\n")
+    first_slide = True
+    for i, line in enumerate(lines):
         line = line.strip()
         if not line:
-            story.append(Spacer(1, 6))
+            story.append(Spacer(1, 6 if not is_slides else 12))
         elif line == "---":
             story.append(HRFlowable(width="100%", thickness=0.5, color=brand_color, spaceAfter=6))
-        elif line.startswith("# "):
-            story.append(Paragraph(line[2:], h1_style))
+        elif line.startswith("# ") or (is_slides and line.startswith("## ")):
+            if is_slides and not first_slide:
+                from reportlab.platypus import PageBreak
+                story.append(PageBreak())
+            first_slide = False
+            text = line.lstrip("# ")
+            story.append(Paragraph(text, slide_title_style if is_slides else h1_style))
         elif line.startswith("## "):
             story.append(Paragraph(line[3:], h2_style))
         elif line.startswith("### "):
             story.append(Paragraph(line[4:], h3_style))
         elif line.startswith("- ") or line.startswith("* "):
-            story.append(Paragraph(f"• {line[2:]}", bullet_style))
+            text = f"• {line[2:]}"
+            story.append(Paragraph(text, slide_bullet_style if is_slides else bullet_style))
         elif re.match(r"^\d+\. ", line):
-            story.append(Paragraph(line, bullet_style))
+            story.append(Paragraph(line, slide_bullet_style if is_slides else bullet_style))
         else:
             line_html = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", line)
-            story.append(Paragraph(line_html, body_style))
+            story.append(Paragraph(line_html, slide_body_style if is_slides else body_style))
 
-    doc_pdf.build(story)
+    doc_pdf.build(story, onFirstPage=add_logo_header, onLaterPages=add_logo_header)
     buf.seek(0)
     return buf.read()
 
@@ -934,7 +1027,8 @@ async def padronizar(
             media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             out_filename = filename.replace(".docx", "_padronizado.docx")
         elif ext == "pdf":
-            output_bytes = build_pdf(markdown_out, brand)
+            slides = is_slide_pdf(file_bytes)
+            output_bytes = build_pdf(markdown_out, brand, is_slides=slides)
             media_type = "application/pdf"
             out_filename = filename.replace(".pdf", "_padronizado.pdf")
         elif ext == "pptx":
