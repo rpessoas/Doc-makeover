@@ -874,7 +874,7 @@ Responda SOMENTE com um JSON válido, sem markdown, sem explicações fora do JS
 }}"""
 
     response = client.messages.create(
-        model="claude-sonnet-4-5-20251001",
+        model="claude-sonnet-4-5",
         max_tokens=4000,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -920,7 +920,9 @@ async def padronizar(
     try:
         result = padronizar_com_claude(text, brand, audience, doc_type, reference)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na API do Claude: {str(e)}")
+        import traceback
+        detail = f"Erro na API do Claude: {str(e)}\n{traceback.format_exc()}"
+        raise HTTPException(status_code=500, detail=detail)
 
     markdown_out = result.get("documento_padronizado", "")
     alteracoes = result.get("alteracoes", "")
