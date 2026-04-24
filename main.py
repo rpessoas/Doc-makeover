@@ -18,7 +18,6 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 import anthropic
 import docx
@@ -38,12 +37,493 @@ import openpyxl
 
 app = FastAPI(title="Padronizador Amélie & Juliette")
 
+FRONTEND_HTML = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Padronizador — Amélie & Juliette</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#f8f8f6;color:#1a1a1a;padding:2rem 1rem;min-height:100vh}
+  .app{max-width:680px;margin:0 auto}
+  h1{font-size:18px;font-weight:500;margin-bottom:1.5rem}
+
+  label{display:block;font-size:13px;color:#666;margin-bottom:6px}
+  .section{margin-bottom:1.25rem}
+
+  /* Marca */
+  .brand-switcher{display:flex;border:0.5px solid #ccc;border-radius:8px;overflow:hidden;margin-bottom:1.5rem}
+  .brand-btn{flex:1;padding:10px;border:none;background:transparent;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.15s;color:#888}
+  .brand-btn:first-child{border-right:0.5px solid #ccc}
+  .amelie-active .brand-btn.amelie{background:#FDECEA;color:#8B0A1A}
+  .juliette-active .brand-btn.juliette{background:#EEF2F4;color:#2E4550}
+
+  /* Público */
+  .audience-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem}
+  .aud-card{border:0.5px solid #ddd;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s;background:#fff}
+  .aud-card:hover{border-color:#aaa;background:#f8f8f6}
+  .aud-card.sel-amelie{border-color:#C8102E;background:#FDECEA}
+  .aud-card.sel-juliette{border-color:#506775;background:#EEF2F4}
+  .aud-title{font-size:13px;font-weight:500;margin-bottom:3px}
+  .aud-desc{font-size:11px;color:#888;line-height:1.4}
+
+  /* Tipo doc */
+  .doc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem}
+  .doc-tab{padding:5px 12px;border-radius:8px;border:0.5px solid #ccc;background:transparent;font-size:13px;color:#888;cursor:pointer;transition:all 0.15s}
+  .doc-tab:hover{background:#f0f0ee}
+  .doc-tab.act-amelie{background:#FDECEA;border-color:#C8102E;color:#8B0A1A;font-weight:500}
+  .doc-tab.act-juliette{background:#EEF2F4;border-color:#506775;color:#2E4550;font-weight:500}
+
+  /* Upload */
+  .drop-zone{border:1.5px dashed #ccc;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;background:#fff;position:relative}
+  .drop-zone:hover,.drop-zone.drag-over{border-color:#aaa;background:#f8f8f6}
+  .drop-zone.amelie-drop{border-color:#C8102E;background:#FDECEA}
+  .drop-zone.juliette-drop{border-color:#506775;background:#EEF2F4}
+  .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .drop-icon{font-size:28px;margin-bottom:8px;line-height:1}
+  .drop-main{font-size:14px;font-weight:500;color:#1a1a1a;margin-bottom:4px}
+  .drop-sub{font-size:12px;color:#888}
+  .file-chosen{font-size:13px;font-weight:500;margin-top:8px;color:#1a1a1a}
+
+  /* Referência */
+  .toggle-ref{font-size:12px;color:#888;cursor:pointer;text-decoration:underline;display:inline-block;margin-bottom:8px}
+  .ref-area{display:none}
+  .ref-area.open{display:block}
+  textarea{width:100%;border-radius:8px;border:0.5px solid #ddd;padding:10px 12px;font-size:14px;font-family:inherit;color:#1a1a1a;background:#fff;resize:vertical;line-height:1.6}
+  textarea:focus{outline:none;border-color:#aaa}
+
+  /* Nota */
+  .scope-note{font-size:12px;color:#999;padding:8px 12px;border-left:2px solid #ddd;margin-bottom:1.25rem;line-height:1.5}
+
+  /* Botão */
+  .btn{width:100%;padding:11px;border-radius:8px;border:0.5px solid #ccc;background:transparent;font-size:14px;font-weight:500;color:#1a1a1a;cursor:pointer;transition:all 0.15s}
+  .btn:hover{background:#f0f0ee}
+  .btn:active{transform:scale(0.98)}
+  .btn:disabled{opacity:0.4;cursor:not-allowed}
+
+  /* Progress */
+  .progress-wrap{margin-top:1rem;display:none}
+  .progress-bar{height:3px;background:#e0e0e0;border-radius:2px;overflow:hidden}
+  .progress-fill{height:100%;width:0;border-radius:2px;transition:width 0.4s}
+  .amelie-active .progress-fill{background:#993556}
+  .juliette-active .progress-fill{background:#185FA5}
+  .progress-label{font-size:12px;color:#888;margin-top:6px;text-align:center}
+
+  /* Resultado */
+  .divider{height:0.5px;background:#e0e0e0;margin:1.5rem 0}
+  .result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .pill{display:inline-flex;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:500;margin-right:6px}
+  .pill-amelie{background:#FDECEA;color:#8B0A1A}
+  .pill-juliette{background:#EEF2F4;color:#2E4550}
+  .pill-aud{background:#f0f0ee;color:#666}
+  .result-label{font-size:13px;font-weight:500;color:#666}
+  .download-btn{padding:6px 14px;border-radius:8px;border:0.5px solid #ccc;background:#fff;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;color:#1a1a1a;display:inline-flex;align-items:center;gap:6px}
+  .download-btn:hover{background:#f0f0ee}
+  .alteracoes-box{border:0.5px solid #ddd;border-radius:12px;padding:1.25rem;background:#f4f4f2;font-size:13px;line-height:1.7;color:#444;white-space:pre-wrap;min-height:60px}
+
+  /* Config URL */
+  .config-bar{background:#fff;border:0.5px solid #ddd;border-radius:8px;padding:10px 12px;margin-bottom:1.5rem;display:flex;gap:8px;align-items:center}
+  .config-bar input{flex:1;border:none;font-size:12px;color:#666;outline:none;background:transparent}
+  .config-bar label{font-size:11px;color:#aaa;white-space:nowrap;margin:0}
+  .mode-badge{font-size:11px;padding:2px 8px;border-radius:6px;white-space:nowrap}
+  .mode-api{background:#E6F1FB;color:#185FA5}
+  .mode-demo{background:#FBEAF0;color:#993556}
+
+  .status{font-size:13px;color:#888;text-align:center;padding:4px}
+</style>
+</head>
+<body>
+<div class="app amelie-active" id="app">
+  <h1>Padronizador de documentos</h1>
+
+
+
+  <!-- Marca -->
+  <div class="section">
+    <label>Marca</label>
+    <div class="brand-switcher">
+      <button class="brand-btn amelie" onclick="setBrand('amelie')">Amélie</button>
+      <button class="brand-btn juliette" onclick="setBrand('juliette')">Juliette</button>
+    </div>
+  </div>
+
+  <!-- Público -->
+  <div class="section">
+    <label>Público-alvo</label>
+    <div class="audience-grid">
+      <div class="aud-card sel-amelie" data-aud="franqueados" onclick="setAud(this)">
+        <div class="aud-title">Franqueados</div>
+        <div class="aud-desc">O que precisam saber e podem receber</div>
+      </div>
+      <div class="aud-card" data-aud="time" onclick="setAud(this)">
+        <div class="aud-title">Time interno</div>
+        <div class="aud-desc">Completo, detalhado, visão 360</div>
+      </div>
+      <div class="aud-card" data-aud="liderancas" onclick="setAud(this)">
+        <div class="aud-title">Lideranças</div>
+        <div class="aud-desc">Performance, riscos, pareto do que importa</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tipo -->
+  <div class="section">
+    <label>Tipo de documento</label>
+    <div class="doc-tabs">
+      <button class="doc-tab act-amelie" data-type="ficha" onclick="setDoc(this)">Ficha técnica</button>
+      <button class="doc-tab" data-type="relatorio" onclick="setDoc(this)">Relatório</button>
+      <button class="doc-tab" data-type="checklist" onclick="setDoc(this)">Checklist</button>
+      <button class="doc-tab" data-type="apresentacao" onclick="setDoc(this)">Apresentação</button>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="section">
+    <label>Documento para padronizar</label>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".docx,.pdf,.pptx,.xlsx,.xls,.txt" onchange="onFileChange(this)">
+      <div class="drop-icon">📄</div>
+      <div class="drop-main">Clique ou arraste o arquivo aqui</div>
+      <div class="drop-sub">.docx · .pdf · .pptx · .xlsx · .txt</div>
+      <div class="file-chosen" id="file-name" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Referência -->
+  <div class="section">
+    <span class="toggle-ref" id="toggle-ref" onclick="toggleRef()">+ Adicionar documento de referência de estilo (recomendado)</span>
+    <div class="ref-area" id="ref-area">
+      <label>Faça upload de um documento bem feito da marca — o Claude vai usar como modelo de estilo e formatação</label>
+      <div class="drop-zone" id="ref-drop-zone" style="padding:1rem;margin-top:6px;">
+        <input type="file" id="ref-file-input" accept=".docx,.pdf,.txt" onchange="onRefFileChange(this)">
+        <div class="drop-main" style="font-size:13px;">Clique ou arraste o documento de referência</div>
+        <div class="drop-sub">.docx · .pdf · .txt</div>
+        <div class="file-chosen" id="ref-file-name" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="scope-note">O conteúdo não será alterado. A padronização cobre formatação conforme a marca, estrutura do tipo de documento e revisão ortográfica. O arquivo será devolvido no mesmo formato enviado.</p>
+
+  <button class="btn" id="run-btn" onclick="runPadronizacao()">Padronizar e baixar documento ↗</button>
+
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label">Lendo documento...</div>
+  </div>
+
+  <div id="result-section" style="display:none">
+    <div class="divider"></div>
+    <div class="result-header">
+      <span class="result-label">
+        <span class="pill" id="out-brand-pill">Amélie</span>
+        <span class="pill pill-aud" id="out-aud-pill">Franqueados</span>
+      </span>
+      <a class="download-btn" id="download-link" href="#" download>⬇ Baixar arquivo</a>
+    </div>
+    <div style="margin-top:10px">
+      <div style="font-size:12px;color:#888;margin-bottom:6px">O que foi ajustado</div>
+      <div class="alteracoes-box" id="alteracoes-box"></div>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const EXT_MIME = {
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  pdf: 'application/pdf',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  txt: 'text/plain',
+};
+
+let brand = 'amelie', aud = 'franqueados', docType = 'ficha';
+let selectedFile = null;
+let selectedRefFile = null;
+
+// ── Drag & drop ──────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+
+function onFileChange(input) { if (input.files[0]) setFile(input.files[0]); }
+
+function setFile(f) {
+  selectedFile = f;
+  const nameEl = document.getElementById('file-name');
+  nameEl.textContent = f.name;
+  nameEl.style.display = 'block';
+  const b = brand === 'amelie' ? 'amelie-drop' : 'juliette-drop';
+  dropZone.className = `drop-zone ${b}`;
+}
+
+// ── Controles ────────────────────────────────────────────────────────────────
+function setBrand(b) {
+  brand = b;
+  document.getElementById('app').className = 'app ' + (b === 'amelie' ? 'amelie-active' : 'juliette-active');
+  document.querySelectorAll('.aud-card').forEach(c => {
+    c.className = 'aud-card' + (c.dataset.aud === aud ? ` sel-${b}` : '');
+  });
+  document.querySelectorAll('.doc-tab').forEach(t => {
+    t.className = 'doc-tab' + (t.dataset.type === docType ? ` act-${b}` : '');
+  });
+  if (selectedFile) dropZone.className = `drop-zone ${b}-drop`;
+}
+
+function setAud(el) {
+  aud = el.dataset.aud;
+  document.querySelectorAll('.aud-card').forEach(c => {
+    c.className = 'aud-card' + (c.dataset.aud === aud ? ` sel-${brand}` : '');
+  });
+}
+
+function setDoc(el) {
+  docType = el.dataset.type;
+  document.querySelectorAll('.doc-tab').forEach(t => {
+    t.className = 'doc-tab' + (t.dataset.type === docType ? ` act-${brand}` : '');
+  });
+}
+
+function onRefFileChange(input) {
+  if (input.files[0]) {
+    selectedRefFile = input.files[0];
+    const nameEl = document.getElementById('ref-file-name');
+    nameEl.textContent = input.files[0].name;
+    nameEl.style.display = 'block';
+  }
+}
+
+function toggleRef() {
+  const area = document.getElementById('ref-area');
+  const open = area.classList.toggle('open');
+  document.getElementById('toggle-ref').textContent = open ? '- Ocultar referência' : '+ Adicionar exemplo de referência (recomendado)';
+}
+
+
+// ── Progress ─────────────────────────────────────────────────────────────────
+function setProgress(pct, label) {
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function hideProgress() {
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('progress-fill').style.width = '0';
+}
+
+// ── Labels ───────────────────────────────────────────────────────────────────
+const audLabels = { franqueados: 'Franqueados', time: 'Time interno', liderancas: 'Lideranças' };
+const brandNames = { amelie: 'Amélie', juliette: 'Juliette' };
+const pillClasses = { amelie: 'pill pill-amelie', juliette: 'pill pill-juliette' };
+
+// ── Principal ─────────────────────────────────────────────────────────────────
+async function runPadronizacao() {
+  // Lê referência se tiver arquivo
+  let refText = '';
+  if (selectedRefFile) {
+    try {
+      const refExt = selectedRefFile.name.split('.').pop().toLowerCase();
+      if (refExt === 'txt') {
+        refText = await selectedRefFile.text();
+      } else if (refExt === 'docx' && typeof mammoth !== 'undefined') {
+        const ab = await selectedRefFile.arrayBuffer();
+        const r = await mammoth.extractRawText({ arrayBuffer: ab });
+        refText = r.value;
+      } else if (refExt === 'pdf' && typeof pdfjsLib !== 'undefined') {
+        const ab = await selectedRefFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        const pages = [];
+        for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
+          const page = await pdf.getPage(i);
+          const tc = await page.getTextContent();
+          pages.push(tc.items.map(s => s.str).join(' '));
+        }
+        refText = pages.join('\\n\\n');
+      }
+    } catch(e) { console.warn('ref read error', e); }
+  }
+
+  if (!selectedFile) { document.getElementById('status').textContent = 'Selecione um arquivo antes de continuar.'; return; }
+
+  const apiUrl = '';
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('status').textContent = '';
+  document.getElementById('result-section').style.display = 'none';
+
+  if (apiUrl) {
+    // ── Modo backend real ──────────────────────────────────────────────────
+    setProgress(20, 'Enviando arquivo...');
+    try {
+      const form = new FormData();
+      form.append('file', selectedFile);
+      form.append('brand', brand);
+      form.append('audience', aud);
+      form.append('doc_type', docType);
+      form.append('reference', refText);
+
+      setProgress(50, 'Padronizando com Claude...');
+      const resp = await fetch('/padronizar', { method: 'POST', body: form });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        throw new Error(err.detail || 'Erro desconhecido');
+      }
+
+      setProgress(85, 'Gerando arquivo...');
+      const blob = await resp.blob();
+      const alteracoes = decodeURIComponent(resp.headers.get('X-Alteracoes') || '').replace(/ \\| /g, '\\n');
+      const ext = selectedFile.name.rsplit ? selectedFile.name.split('.').pop() : selectedFile.name.split('.').pop();
+      const outName = selectedFile.name.replace(`.${ext}`, `_padronizado.${ext}`);
+
+      const url = URL.createObjectURL(blob);
+      const link = document.getElementById('download-link');
+      link.href = url;
+      link.download = outName;
+
+      showResult(alteracoes);
+      setProgress(100, 'Pronto!');
+      setTimeout(hideProgress, 1000);
+    } catch (e) {
+      hideProgress();
+      document.getElementById('status').textContent = 'Erro: ' + e.message;
+    }
+  } else if (false) { // modo demo desabilitado na versão hospedada
+    // ── Modo demo ────
+    setProgress(20, 'Lendo arquivo...');
+    let textContent = '';
+    const ext = selectedFile.name.split('.').pop().toLowerCase();
+
+    try {
+      if (ext === 'txt') {
+        textContent = await selectedFile.text();
+      } else if (ext === 'docx') {
+        // Usa mammoth via CDN (carregado abaixo)
+        const ab = await selectedFile.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: ab });
+        textContent = result.value;
+      } else if (ext === 'pdf') {
+        const ab = await selectedFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        const pages = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const tc = await page.getTextContent();
+          pages.push(tc.items.map(s => s.str).join(' '));
+        }
+        textContent = pages.join('\\n\\n');
+      } else {
+        throw new Error(`Para .${ext}, conecte o backend para suporte completo.`);
+      }
+    } catch (e) {
+      hideProgress();
+      document.getElementById('status').textContent = 'Erro ao ler arquivo: ' + e.message;
+      btn.disabled = false;
+      return;
+    }
+
+    if (!textContent.trim()) {
+      hideProgress();
+      document.getElementById('status').textContent = 'Não foi possível extrair texto do arquivo.';
+      btn.disabled = false;
+      return;
+    }
+
+    setProgress(50, 'Padronizando com Claude...');
+
+    const audInstrucoes = {
+      franqueados: 'Ao organizar a estrutura, priorize o que o franqueado precisa saber para operar. Linguagem contratualmente segura: "previsto em contrato", "conforme manual operacional".',
+      time: 'Garanta que o quadro completo fique legível: contexto, impactos, dependências, responsáveis, prazos e pendências. Visão 360.',
+      liderancas: 'Aplique Pareto: o que mais impacta aparece primeiro. Headline → diagnóstico → riscos → ações → decisões pendentes.',
+    };
+    const brandPersona = {
+      amelie: 'Marca Amélie: sofisticada e acolhedora. Linguagem elegante sem ser distante.',
+      juliette: 'Marca Juliette: moderna e orientada a resultado. Linguagem clara e eficiente.',
+    };
+    const docLabels = { ficha: 'ficha técnica', relatorio: 'relatório', checklist: 'checklist', apresentacao: 'apresentação' };
+
+    const prompt = `Você é um especialista em padronização de documentos corporativos.
+${brandPersona[brand]}
+PÚBLICO: ${audLabels[aud]} — ${audInstrucoes[aud]}
+TIPO: ${docLabels[docType]}
+ESCOPO: preserve o conteúdo integralmente. Atue apenas em formatação/design da marca, organização estrutural e revisão ortográfica.
+${document.getElementById('ref-input').value.trim() ? 'REFERÊNCIA:\\n---\\n' + document.getElementById('ref-input').value.trim() + '\\n---\\n' : ''}
+DOCUMENTO:
+---
+${textContent}
+---
+Responda SOMENTE com JSON válido:
+{"documento_padronizado":"markdown completo","alteracoes":"lista de ajustes (máx 5, cada um com '-' em nova linha)"}`;
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4000, messages: [{ role: 'user', content: prompt }] })
+      });
+      const data = await resp.json();
+      const raw = data.content?.find(b => b.type === 'text')?.text || '';
+      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+
+      setProgress(85, 'Gerando arquivo para download...');
+
+      // Gera .txt com o markdown (no browser, sem backend)
+      const outputText = parsed.documento_padronizado;
+      const blob = new Blob([outputText], { type: 'text/plain' });
+      const outExt = ext === 'txt' ? 'txt' : 'md';
+      const outName = selectedFile.name.replace(`.${ext}`, `_padronizado.${outExt}`);
+      const url = URL.createObjectURL(blob);
+      const link = document.getElementById('download-link');
+      link.href = url;
+      link.download = outName;
+      link.textContent = `⬇ Baixar (${outExt.toUpperCase()})`;
+
+      showResult(parsed.alteracoes);
+      setProgress(100, 'Pronto! (modo demo: arquivo em Markdown — conecte o backend para o formato original)');
+      setTimeout(hideProgress, 3000);
+    } catch (e) {
+      hideProgress();
+      document.getElementById('status').textContent = 'Erro: ' + e.message;
+    }
+  }
+
+  btn.disabled = false;
+}
+
+function showResult(alteracoes) {
+  const pill = document.getElementById('out-brand-pill');
+  pill.textContent = brandNames[brand];
+  pill.className = pillClasses[brand];
+  document.getElementById('out-aud-pill').textContent = audLabels[aud];
+  document.getElementById('alteracoes-box').textContent = alteracoes;
+  document.getElementById('result-section').style.display = 'block';
+}
+</script>
+
+<!-- Bibliotecas para modo demo (leitura de docx e pdf no browser) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
+</body>
+</html>
+"""
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
-    html_path = Path(__file__).parent / "static" / "index.html"
-    if html_path.exists():
-        return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
-    return HTMLResponse(content="<h1>Frontend não encontrado</h1>", status_code=404)
+    return HTMLResponse(content=FRONTEND_HTML)
 
 app.add_middleware(
     CORSMiddleware,
