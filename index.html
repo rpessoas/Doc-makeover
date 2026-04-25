@@ -17,15 +17,15 @@
   .brand-switcher{display:flex;border:0.5px solid #ccc;border-radius:8px;overflow:hidden;margin-bottom:1.5rem}
   .brand-btn{flex:1;padding:10px;border:none;background:transparent;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.15s;color:#888}
   .brand-btn:first-child{border-right:0.5px solid #ccc}
-  .amelie-active .brand-btn.amelie{background:#FDECEA;color:#8B0A1A}
-  .juliette-active .brand-btn.juliette{background:#EEF2F4;color:#2E4550}
+  .amelie-active .brand-btn.amelie{background:#F5EBF0;color:#72243E}
+  .juliette-active .brand-btn.juliette{background:#EAF0F5;color:#0C447C}
 
   /* Público */
   .audience-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem}
   .aud-card{border:0.5px solid #ddd;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all 0.15s;background:#fff}
   .aud-card:hover{border-color:#aaa;background:#f8f8f6}
-  .aud-card.sel-amelie{border-color:#C8102E;background:#FDECEA}
-  .aud-card.sel-juliette{border-color:#506775;background:#EEF2F4}
+  .aud-card.sel-amelie{border-color:#993556;background:#FBEAF0}
+  .aud-card.sel-juliette{border-color:#185FA5;background:#E6F1FB}
   .aud-title{font-size:13px;font-weight:500;margin-bottom:3px}
   .aud-desc{font-size:11px;color:#888;line-height:1.4}
 
@@ -33,14 +33,14 @@
   .doc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem}
   .doc-tab{padding:5px 12px;border-radius:8px;border:0.5px solid #ccc;background:transparent;font-size:13px;color:#888;cursor:pointer;transition:all 0.15s}
   .doc-tab:hover{background:#f0f0ee}
-  .doc-tab.act-amelie{background:#FDECEA;border-color:#C8102E;color:#8B0A1A;font-weight:500}
-  .doc-tab.act-juliette{background:#EEF2F4;border-color:#506775;color:#2E4550;font-weight:500}
+  .doc-tab.act-amelie{background:#FBEAF0;border-color:#993556;color:#72243E;font-weight:500}
+  .doc-tab.act-juliette{background:#E6F1FB;border-color:#185FA5;color:#0C447C;font-weight:500}
 
   /* Upload */
   .drop-zone{border:1.5px dashed #ccc;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;background:#fff;position:relative}
   .drop-zone:hover,.drop-zone.drag-over{border-color:#aaa;background:#f8f8f6}
-  .drop-zone.amelie-drop{border-color:#C8102E;background:#FDECEA}
-  .drop-zone.juliette-drop{border-color:#506775;background:#EEF2F4}
+  .drop-zone.amelie-drop{border-color:#993556;background:#FBEAF0}
+  .drop-zone.juliette-drop{border-color:#185FA5;background:#E6F1FB}
   .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
   .drop-icon{font-size:28px;margin-bottom:8px;line-height:1}
   .drop-main{font-size:14px;font-weight:500;color:#1a1a1a;margin-bottom:4px}
@@ -75,8 +75,8 @@
   .divider{height:0.5px;background:#e0e0e0;margin:1.5rem 0}
   .result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
   .pill{display:inline-flex;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:500;margin-right:6px}
-  .pill-amelie{background:#FDECEA;color:#8B0A1A}
-  .pill-juliette{background:#EEF2F4;color:#2E4550}
+  .pill-amelie{background:#FBEAF0;color:#72243E}
+  .pill-juliette{background:#E6F1FB;color:#0C447C}
   .pill-aud{background:#f0f0ee;color:#666}
   .result-label{font-size:13px;font-weight:500;color:#666}
   .download-btn{padding:6px 14px;border-radius:8px;border:0.5px solid #ccc;background:#fff;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;color:#1a1a1a;display:inline-flex;align-items:center;gap:6px}
@@ -98,7 +98,12 @@
 <div class="app amelie-active" id="app">
   <h1>Padronizador de documentos</h1>
 
-
+  <!-- Config URL backend -->
+  <div class="config-bar">
+    <label>URL do backend:</label>
+    <input type="text" id="api-url" value="https://doc-makeover-production.up.railway.app" placeholder="https://seu-backend.railway.app" oninput="updateMode()">
+    <span class="mode-badge mode-api" id="mode-badge">backend conectado</span>
+  </div>
 
   <!-- Marca -->
   <div class="section">
@@ -153,18 +158,14 @@
 
   <!-- Referência -->
   <div class="section">
-    <span class="toggle-ref" id="toggle-ref" onclick="toggleRef()">+ Adicionar documento de referência de estilo (recomendado)</span>
+    <span class="toggle-ref" id="toggle-ref" onclick="toggleRef()">+ Adicionar exemplo de referência (recomendado)</span>
     <div class="ref-area" id="ref-area">
-      <label>Faça upload de um documento bem feito da marca — o Claude vai usar como modelo de estilo e formatação</label>
-      <div class="drop-zone" id="ref-drop-zone" style="padding:1rem;margin-top:6px;">
-        <input type="file" id="ref-file-input" accept=".docx,.pdf,.txt" onchange="onRefFileChange(this)">
-        <div class="drop-main" style="font-size:13px;">Clique ou arraste o documento de referência</div>
-        <div class="drop-sub">.docx · .pdf · .txt</div>
-        <div class="file-chosen" id="ref-file-name" style="display:none"></div>
-      </div>
+      <label>Cole um documento bem feito — o Claude vai usar como modelo de estilo</label>
+      <textarea id="ref-input" rows="4" placeholder="Cole o texto do documento de referência..."></textarea>
     </div>
   </div>
 
+  <p class="scope-note" id="tempo-note" style="display:none;border-left-color:#C8102E;color:#666">Processando — estimativa: <span id="tempo-val">20</span>s</p>
   <p class="scope-note">O conteúdo não será alterado. A padronização cobre formatação conforme a marca, estrutura do tipo de documento e revisão ortográfica. O arquivo será devolvido no mesmo formato enviado.</p>
 
   <button class="btn" id="run-btn" onclick="runPadronizacao()">Padronizar e baixar documento ↗</button>
@@ -203,7 +204,6 @@ const EXT_MIME = {
 
 let brand = 'amelie', aud = 'franqueados', docType = 'ficha';
 let selectedFile = null;
-let selectedRefFile = null;
 
 // ── Drag & drop ──────────────────────────────────────────────────────────────
 const dropZone = document.getElementById('drop-zone');
@@ -254,21 +254,23 @@ function setDoc(el) {
   });
 }
 
-function onRefFileChange(input) {
-  if (input.files[0]) {
-    selectedRefFile = input.files[0];
-    const nameEl = document.getElementById('ref-file-name');
-    nameEl.textContent = input.files[0].name;
-    nameEl.style.display = 'block';
-  }
-}
-
 function toggleRef() {
   const area = document.getElementById('ref-area');
   const open = area.classList.toggle('open');
   document.getElementById('toggle-ref').textContent = open ? '- Ocultar referência' : '+ Adicionar exemplo de referência (recomendado)';
 }
 
+function updateMode() {
+  const url = document.getElementById('api-url').value.trim();
+  const badge = document.getElementById('mode-badge');
+  if (url) {
+    badge.textContent = 'backend conectado';
+    badge.className = 'mode-badge mode-api';
+  } else {
+    badge.textContent = 'modo demo';
+    badge.className = 'mode-badge mode-demo';
+  }
+}
 
 // ── Progress ─────────────────────────────────────────────────────────────────
 function setProgress(pct, label) {
@@ -289,67 +291,52 @@ const pillClasses = { amelie: 'pill pill-amelie', juliette: 'pill pill-juliette'
 
 // ── Principal ─────────────────────────────────────────────────────────────────
 async function runPadronizacao() {
-  // Lê referência se tiver arquivo
-  let refText = '';
-  if (selectedRefFile) {
-    try {
-      const refExt = selectedRefFile.name.split('.').pop().toLowerCase();
-      if (refExt === 'txt') {
-        refText = await selectedRefFile.text();
-      } else if (refExt === 'docx' && typeof mammoth !== 'undefined') {
-        const ab = await selectedRefFile.arrayBuffer();
-        const r = await mammoth.extractRawText({ arrayBuffer: ab });
-        refText = r.value;
-      } else if (refExt === 'pdf' && typeof pdfjsLib !== 'undefined') {
-        const ab = await selectedRefFile.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-        const pages = [];
-        for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
-          const page = await pdf.getPage(i);
-          const tc = await page.getTextContent();
-          pages.push(tc.items.map(s => s.str).join(' '));
-        }
-        refText = pages.join('\n\n');
-      }
-    } catch(e) { console.warn('ref read error', e); }
-  }
-
   if (!selectedFile) { document.getElementById('status').textContent = 'Selecione um arquivo antes de continuar.'; return; }
 
-  const apiUrl = '';
+  const apiUrl = document.getElementById('api-url').value.trim();
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
   document.getElementById('status').textContent = '';
+      document.getElementById('tempo-note').style.display = 'none';
   document.getElementById('result-section').style.display = 'none';
 
   if (apiUrl) {
     // ── Modo backend real ──────────────────────────────────────────────────
     setProgress(20, 'Enviando arquivo...');
+      // Estima tempo
+      const sizeKb = selectedFile.size / 1024;
+      const estSec = Math.round(20 + (sizeKb > 500 ? 10 : 0));
+      document.getElementById('tempo-val').textContent = estSec;
+      document.getElementById('tempo-note').style.display = 'block';
     try {
       const form = new FormData();
       form.append('file', selectedFile);
       form.append('brand', brand);
       form.append('audience', aud);
       form.append('doc_type', docType);
-      form.append('reference', refText);
+      form.append('reference', document.getElementById('ref-input').value.trim());
 
       setProgress(50, 'Padronizando com Claude...');
-      const resp = await fetch('/padronizar', { method: 'POST', body: form });
+      const resp = await fetch(`${apiUrl}/padronizar`, { method: 'POST', body: form });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ detail: resp.statusText }));
         throw new Error(err.detail || 'Erro desconhecido');
       }
 
-      setProgress(85, 'Gerando arquivo...');
+      // Lê tempo estimado e mostra
+      const tempoEst = resp.headers.get('X-Tempo-Estimado') || '20';
+      const titulo = resp.headers.get('X-Titulo') || '';
+      setProgress(85, 'Gerando arquivos...');
       const blob = await resp.blob();
-      const alteracoes = decodeURIComponent(resp.headers.get('X-Alteracoes') || '').replace(/ \| /g, '\n');
-      const ext = selectedFile.name.rsplit ? selectedFile.name.split('.').pop() : selectedFile.name.split('.').pop();
-      const outName = selectedFile.name.replace(`.${ext}`, `_padronizado.${ext}`);
+      const alteracoes = decodeURIComponent((resp.headers.get('X-Alteracoes') || '').replace(/ \| /g, '\n'));
+      const base = selectedFile.name.rsplit ? selectedFile.name.split('.').slice(0,-1).join('.') : selectedFile.name.split('.').slice(0,-1).join('.');
+      const outName = `${base}_padronizado.zip`;
 
       const url = URL.createObjectURL(blob);
       const link = document.getElementById('download-link');
       link.href = url;
       link.download = outName;
+      link.textContent = '⬇ Baixar ZIP (HTML + editável)';
 
       showResult(alteracoes);
       setProgress(100, 'Pronto!');
@@ -358,8 +345,8 @@ async function runPadronizacao() {
       hideProgress();
       document.getElementById('status').textContent = 'Erro: ' + e.message;
     }
-  } else if (false) { // modo demo desabilitado na versão hospedada
-    // ── Modo demo ────
+  } else {
+    // ── Modo demo: lê texto do arquivo no browser, chama Claude direto ────
     setProgress(20, 'Lendo arquivo...');
     let textContent = '';
     const ext = selectedFile.name.split('.').pop().toLowerCase();
